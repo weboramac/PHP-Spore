@@ -6,7 +6,6 @@ class Spore
   protected $_client;
   protected $_methods;
   protected $_method_spec;
-  protected $_format;
   protected $_host;
   protected $_base_url;
   protected $_request_path;
@@ -19,6 +18,9 @@ class Spore
   protected $_httpClient = null;
 
   protected $_response;
+
+  protected $_account_id;
+  protected $_format = 'json';
 
   /**
    * Constructor
@@ -54,6 +56,28 @@ class Spore
 
     $this->_init_client();
 
+  }
+
+  public function accountId($account_id = null)
+  {
+    if (null === $account_id)
+      return $this->_account_id;
+
+    $this->_account_id = $account_id;
+    $this->enable('AddHeader', [
+      'header_name' => 'X-Weborama-Account_Id',
+      'header_value' => $this->_account_id,
+    ]);
+    return $this;
+  }
+
+  public function format($format = null)
+  {
+    if (null === $format)
+      return $this->_format;
+
+    $this->_format = $format;
+    return $this;
   }
 
   /**
@@ -117,33 +141,20 @@ class Spore
     if (file_exists($spec_file)) {
       switch ($spec_format) {
         case 'json' :
-          // read the spec file
-          $fp = fopen($spec_file, 'r');
-          if (!$fp)
+          $specs_text = file_get_contents($spec_file);
+          if (false === $specs_text)
             throw new Spore_Exception('Unable to open file: ' . $spec_file);
-
-          $specs_text = '';
-          while (!feof($fp)) {
-            $specs_text .= fgets($fp, 1024);
-          }
-          fclose($fp);
-
-          // decode the json text
           $specs_array = json_decode($specs_text, true);
           return $specs_array;
-          break;
-
-        case 'yaml' :
-          $specs_array = yaml_parse_file($spec_file);
-          return $specs_array;
-          break;
+        case 'yaml':
+        case 'yml':
+          return yaml_parse_file($spec_file);
 
         default :
           throw new Spore_Exception('Unsupported spec file: ' . $spec_file);
       }
-    } else {
-      throw new Spore_Exception('File not found: ' . $spec_file);
     }
+    throw new Spore_Exception('File not found: ' . $spec_file);
   }
 
   /**
@@ -173,12 +184,11 @@ class Spore
   public function __call($method, $params)
   {
     // check if method exists
-    if (!isset ($this->_specs['methods'][$method])) {
+    if (!isset ($this->_specs['methods'][$method]))
       throw new Spore_Exception('Invalid method "' . $method . '"');
-    }
 
     // create the method on request / on the fly
-    $this->_exec_method($method, $params);
+    call_user_func_array([$this, '_exec_method'], array_merge(array($method), $params));
 
     return $this->_response;
   }
@@ -261,29 +271,44 @@ class Spore
 
     // add required params into the path
     $required_params = array();
+    
+    // format
+    if (isset ($params['format']))
+      $this->_format = $params['format'];
+
     if (isset ($this->_specs['methods'][$method]['required_params'])) {
       foreach ($this->_specs['methods'][$method]['required_params'] as $param) {
-        if (!isset ($params[0][$param]))
-          throw new Spore_Exception('Expected parameter "' . $param . '" is not found.');
+        if (!isset ($params[$param])) {
+          $params[$param] = $this->_autocomplete($param);
+        }
 
-        $this->_insertParam($param, $params[0][$param]);
+        $this->_insertParam($param, $params[$param]);
         array_push($required_params, $param);
       }
     }
 
     // add the rest of the params into the path
     if (!(empty($params)))
-      foreach ($params[0] as $param => $value) {
+      foreach ($params as $param => $value) {
         if (!in_array($param, $required_params)) {
           $this->_insertParam($param, $value);
         }
       }
 
-    // format
-    $this->_format = (isset ($params[0]['format'])) ? $params[0]['format'] : 'json';
-
     // also generate raw params from the request params array
     $this->_setRawParams($this->_request_params);
+  }
+
+
+  protected function _autocomplete($param)
+  {
+    if ('account_id' === $param and $this->_account_id)
+      return $this->_account_id;
+
+    if ('format' === $param)
+      return $this->_format;
+
+    throw new Spore_Exception('Expected parameter "' . $param . '" is not found.');
   }
 
   /**
@@ -294,6 +319,10 @@ class Spore
   {
     if (empty ($value))
       return;
+    
+    if ('array' === gettype($value)) {
+      $value = json_encode($value);
+    }
 
     if (strstr($this->_request_path, ":$param")) {
       $this->_request_path     = str_replace(":$param", $value, $this->_request_path);
@@ -401,8 +430,10 @@ class Spore
         return "TODO : parse xml response";
       case 'json' :
         return json_decode($body);
-      case 'yml' :
-      default :
+      case 'yml':
+      case 'yaml':
+        return yaml_parse($body);
+      default:
         return $body;
     }
   }
