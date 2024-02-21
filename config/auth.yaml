@@ -8,7 +8,7 @@ formats:
   - bin
 methods:
   get_authentication_api_jwt_token:
-    path: /authentication/authentication_users/jwt_token/:format
+    path: /advertiser/authentication_users/jwt_token/:format
     method: POST
     required_params:
       - format
