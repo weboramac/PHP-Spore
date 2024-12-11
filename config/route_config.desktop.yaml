@@ -1,6 +1,6 @@
 ---
 name: Advertiser API routes
-base_url: https://api-wcm.weborama.com
+base_url: https://api-wcm-ru.weborama.com
 version: 0.820116
 formats:
   - json
