@@ -1653,6 +1653,20 @@ methods:
     - is_tracker
     - has_statistics
     - comments
+ search_trackers_detail:
+    path: /advertiser/trackers/detail/format
+    method: GET
+    required_params:
+      - format
+      - account_id
+      - start_date
+      - end_date
+    optional_params:
+      - conditions
+      - list_limit
+      - list_offset
+      - order_direction
+      - order_fields
   search_conversion_page:
     path: /advertiser/conversion_pages.:format
     method: GET
