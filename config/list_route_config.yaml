@@ -1,15 +1,27 @@
 ###################################################################
 ---
 name: Advertiser API routes
-base_url: https://api-authentication.weborama.com
+base_url: https://auth-api-wcm-ru.weborama.io
 version: 1.0.0
 formats:
   - json
 methods:
 #  authentication_user functions 
 ###################################################################
-  get_wcm_accounts_from_authentication_user:
-    path: /authentication/authentication_users/wcm_accounts/:format
+At the first step it is necessary to receive the token:
+get_authentication_api_jwt_token:
+    path: /advertiser/authentication_users/jwt_token/format
+    method: POST
+    required_params:
+      - format
+    optional_params:
+      - kc_token
+      - email
+      - password
+
+At the second step to make such a request:
+get_wcm_accounts_from_authentication_user:
+    path: /authentication/authentication_users/wcm_accounts/format
     method: GET
     required_params:
       - format
